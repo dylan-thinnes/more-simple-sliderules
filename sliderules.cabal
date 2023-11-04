@@ -29,6 +29,6 @@ executable sliderules
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.16.4.0, diagrams-lib, diagrams-core, diagrams-svg
+    build-depends:    base ^>=4.16.4.0, diagrams-lib, diagrams-core, diagrams-svg, hershey
     hs-source-dirs:   app
     default-language: Haskell2010
