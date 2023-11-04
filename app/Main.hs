@@ -26,8 +26,7 @@ myDiagram :: Diagram B
 myDiagram =
   frame 0.04 $
     hsep 0.04
-      [ ignore $
-        let options = RenderOptions { roFontSize = 14, roYScale = 0.015 }
+      [ let options = RenderOptions { roFontSize = 14, roYScale = 0.015 }
             circles =
               fold
                 [ foldMap (renderTick options) cScaleCircle
