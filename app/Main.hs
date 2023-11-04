@@ -5,6 +5,8 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE PackageImports #-}
 module Main where
 
 import Diagrams.Prelude
@@ -14,11 +16,19 @@ import Diagrams.Backend.SVG.CmdLine
 import Data.Foldable (fold)
 import Data.Monoid (Endo(..))
 import Text.Printf (printf)
+import Data.Maybe (fromJust)
+import System.IO (stdin)
+import Hershey qualified
 
 main :: IO ()
 main = do
   --mainWith myDiagram
-  mainWith giantSlideRule
+  --mainWith giantSlideRule
+  hersheyMap <- fmap fromJust $ Hershey.parseFromFile stdin
+  mainWith $
+    foldMap
+      (renderTick RenderOptions { roRenderLabel = renderLabelHershey hersheyMap Hershey.gothicSimplex 0.0004, roYScale = 0.015 })
+      cScaleCircle
   putStrLn "Done!"
 
 ignore :: Monoid b => a -> b
@@ -28,7 +38,7 @@ myDiagram :: Diagram B
 myDiagram =
   frame 0.04 $
     hsep 0.04
-      [ let options = RenderOptions { roFontSize = 14, roYScale = 0.015 }
+      [ let options = RenderOptions { roRenderLabel = renderLabelText 14, roYScale = 0.015 }
             circles =
               fold
                 [ svgId "cScaleCircle" $ foldMap (renderTick options) cScaleCircle
@@ -40,7 +50,7 @@ myDiagram =
             cursor color x = fromOffsets [envelopeV (rotateBy (negate x) unitY) circles] & lw 0.4 & lc color
         in
         cursor red 0 <> cursor blue (logBase 100 pi) <> cursor green (logBase 100 pi + logBase 10 2) <> circles
-      , let options = RenderOptions { roFontSize = 8, roYScale = 0.04 }
+      , let options = RenderOptions { roRenderLabel = renderLabelText 8, roYScale = 0.04 }
         in
         vsep 0.02
           [ foldMap (renderTick options) aScale
@@ -52,7 +62,7 @@ myDiagram =
       ]
 
 giantSlideRule :: Diagram B
-giantSlideRule = foldMap (renderTick RenderOptions { roFontSize = 14, roYScale = 0.015 }) longCScale
+giantSlideRule = foldMap (renderTick RenderOptions { roRenderLabel = renderLabelText 14, roYScale = 0.015 }) longCScale
   where
     longCScale =
       map (fmap (TSRadial 0.4 0.05 . (* 10) . logBase 10)) $ fold
@@ -180,10 +190,10 @@ data TickShape = TSRadial { tsRadius, tsSpiralRate, tsAngle :: Double } | TSLine
   deriving (Show, Eq, Ord)
 
 renderTick :: RenderOptions -> Tick -> Diagram B
-renderTick RenderOptions{..} (scaleTickY roYScale -> Tick{..}) =
+renderTick RenderOptions{..} (scaleTickY roYScale -> tick@Tick{..}) =
   moveByPositionOffset $ fold
     [ moveTo (mkP2 0 0) (scale (flipIfDown _height) (lw 0.4 (fromOffsets [unitY])))
-    , moveTo (mkP2 0 (flipIfDown _height)) (foldMap renderLabel _label)
+    , moveTo (mkP2 0 (flipIfDown _height)) (foldMap (roRenderLabel tick) _label)
     ]
       where
     flipIfDown = if _pointDown then negate else id
@@ -192,18 +202,26 @@ renderTick RenderOptions{..} (scaleTickY roYScale -> Tick{..}) =
       TSLinear position -> moveTo (mkP2 position (flipIfDown _offset))
       TSRadial radius spiralRate angle -> rotateBy (-angle) . moveTo (mkP2 0 ((angle * spiralRate) + radius + flipIfDown _offset))
 
-    renderLabel :: String -> Diagram B
-    renderLabel l
-      | _pointDown = alignedText 0.5 1 l & fontSize (pure roFontSize)
-      | otherwise  = alignedText 0.5 0 l & fontSize (pure roFontSize)
-
 scaleTickY :: Double -> Tick -> Tick
 scaleTickY factor Tick{..} = Tick{_height = _height * factor, _offset = _offset * factor, ..}
 
-data RenderOptions = RenderOptions
-  { roFontSize :: Double
+data RenderOptionsG a = RenderOptions
+  { roRenderLabel :: TickG a -> String -> Diagram B
   , roYScale :: Double
   }
+
+type RenderOptions = RenderOptionsG TickShape
+
+renderLabelText :: Double -> TickG a -> String -> Diagram B
+renderLabelText roFontSize Tick{..} l
+  | _pointDown = alignedText 0.5 1 l & fontSize (pure roFontSize)
+  | otherwise  = alignedText 0.5 0 l & fontSize (pure roFontSize)
+
+renderLabelHershey :: [Hershey.Character] -> [Int] -> Double -> TickG a -> String -> Diagram B
+renderLabelHershey chars idxs scaleFactor Tick{..} l
+  = Hershey.renderWrite chars idxs Hershey.TextOptions { justify = 0, aboveBaseline = 15, belowBaseline = 15 } [l]
+      & scale scaleFactor
+      & if _pointDown then alignT else alignB
 
 data Range = Range { rStart, rEnd :: Double }
   deriving (Show)
