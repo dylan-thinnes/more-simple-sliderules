@@ -72,10 +72,11 @@ mapPosition :: (Double -> Double) -> Tick -> Tick
 mapPosition f Tick{..} = Tick{_position = f _position, ..}
 
 renderTick :: RenderOptions -> Tick -> Diagram B
-renderTick RenderOptions{..} (scaleTickY roYScale -> Tick{..}) = fold
-  [ moveTo (mkP2 _position _offset) (scale _height (lw 0.4 (fromOffsets [unitY])))
-  , moveTo (mkP2 _position (_offset + _height)) (foldMap (\l -> alignedText 0.5 0 l & fontSize 14) _label)
-  ]
+renderTick RenderOptions{..} (scaleTickY roYScale -> Tick{..}) =
+  moveTo (mkP2 _position _offset) $ fold
+    [ moveTo (mkP2 0 0) (scale _height (lw 0.4 (fromOffsets [unitY])))
+    , moveTo (mkP2 0 _height) (foldMap (\l -> alignedText 0.5 0 l & fontSize 14) _label)
+    ]
 
 scaleTickY :: Double -> Tick -> Tick
 scaleTickY factor Tick{..} = Tick{_height = _height * factor, _offset = _offset * factor, ..}
