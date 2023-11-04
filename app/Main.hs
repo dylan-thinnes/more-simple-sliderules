@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 module Main where
 
@@ -18,18 +19,18 @@ inRange lower upper x = lower <= x && x <= upper
 
 cScale :: [Tick]
 cScale = map (mapPosition log) $
-  forI (divide True 9 (Range 1 10)) (\x -> [Tick 0.1 x (Just (show (floor x)))]) $
+  forI (divide True 9 (Range 1 10)) (\x -> [Tick 0.1 x (Just (show (round x)))]) $
     \i range -> case i of
-      0 ->
-          for (divide False 10 range) (\x -> [Tick 0.07 x (Just (show (floor ((x - 1) * 10))))]) $ \range ->
+      (inRange 0 0 -> True) ->
+          for (divide False 10 range) (\x -> [Tick 0.075 x (Just (show (round ((x - 1) * 10))))]) $ \range ->
             for (divide False 2 range) (\x -> [Tick 0.05 x Nothing]) $ \range ->
               for (divide False 5 range) (\x -> [Tick 0.035 x Nothing]) mempty
-      x | inRange 1 4 x ->
-        for (divide False 2 range) (\x -> [Tick 0.07 x (Just (show x))]) $ \range ->
+      (inRange 1 4 -> True) ->
+        for (divide False 2 range) (\x -> [Tick 0.075 x (Just (show x))]) $ \range ->
           for (divide False 5 range) (\x -> [Tick 0.05 x Nothing]) $ \range ->
             for (divide False 4 range) (\x -> [Tick 0.035 x Nothing]) mempty
       _ ->
-        for (divide False 2 range) (\x -> [Tick 0.07 x (Just (show x))]) $ \range ->
+        for (divide False 2 range) (\x -> [Tick 0.075 x (Just (show x))]) $ \range ->
           for (divide False 5 range) (\x -> [Tick 0.05 x Nothing]) mempty
 
 data Tick = Tick
