@@ -32,7 +32,7 @@ myDiagram =
                 [ foldMap (renderTick options) cScaleCircle
                 , rotateBy (negate (logBase 100 pi)) (foldMap (renderTick options) dScaleCircle)
                 , foldMap (renderTick options) aScaleCircle
-                , foldMap (renderTick options) sqrtScaleCircle
+                , foldMap (renderTick options) sqrtScaleSpiral
                 ]
             cursor :: Colour Double -> Double -> Diagram B
             cursor color x = fromOffsets [envelopeV (rotateBy (negate x) unitY) circles] & lw 0.4 & lc color
@@ -117,8 +117,26 @@ dScaleCircle = map (\t -> t { _pointDown = True }) cScaleCircle
 aScaleCircle :: [Tick]
 aScaleCircle = map (fmap (TSRadial 0.35 0 . logBase 100)) (aScalePositions iStart)
 
-sqrtScaleCircle :: [Tick]
-sqrtScaleCircle = map (fmap (TSRadial 0.4 0.05 . logBase 10)) (aScalePositions iStart)
+sqrtScaleSpiral :: [Tick]
+sqrtScaleSpiral = map (fmap (TSRadial 0.4 0.05 . (* 2) . logBase 10)) $ fold
+  [ [Tick 0.1 0.7 pi (Just "π") False]
+  , forI (divide iBoth 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $
+      \i range -> case i of
+        (inRange 0 0 -> True) ->
+          for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                for (divide iNone 2 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
+        (inRange 1 4 -> True) ->
+          for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
+        _ ->
+          for (divide iNone 2 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+            for (divide iNone 5 range) (\x -> [Tick 1 0 x Nothing False]) $ \range ->
+              for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
+                for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
+  ]
 
 showClean :: Double -> String
 showClean = reverse . dropWhile (== '.') . dropWhile (== '0') . reverse . printf "%.6f"
