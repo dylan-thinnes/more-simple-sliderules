@@ -9,6 +9,7 @@ module Main where
 
 import Diagrams.Prelude
 import Diagrams.TwoD.Image
+import Diagrams.Backend.SVG
 import Diagrams.Backend.SVG.CmdLine
 import Data.Foldable (fold)
 import Data.Monoid (Endo(..))
@@ -29,7 +30,7 @@ myDiagram =
       [ let options = RenderOptions { roFontSize = 14, roYScale = 0.015 }
             circles =
               fold
-                [ foldMap (renderTick options) cScaleCircle
+                [ svgId "cScaleCircle" $ foldMap (renderTick options) cScaleCircle
                 , rotateBy (negate (logBase 100 pi)) (foldMap (renderTick options) dScaleCircle)
                 , foldMap (renderTick options) aScaleCircle
                 , foldMap (renderTick options) sqrtScaleSpiral
