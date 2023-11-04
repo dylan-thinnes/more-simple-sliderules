@@ -14,45 +14,48 @@ main :: IO ()
 main = mainWith myDiagram
 
 myDiagram :: Diagram B
-myDiagram = frame 0.02 $ vsep 0.02 [foldMap renderTick dScale, foldMap renderTick cScale]
+myDiagram =
+  let render = renderTick RenderOptions { roFontSize = 14, roYScale = 0.03 }
+  in
+  frame 0.02 $ vsep 0.02 [foldMap render dScale, foldMap render cScale]
 
 inRange :: Ord a => a -> a -> a -> Bool
 inRange lower upper x = lower <= x && x <= upper
 
 cScale :: [Tick]
 cScale = map (mapPosition (logBase 10)) $ concat
-  [ [Tick 0.01 0.07 pi (Just "π")]
-  , forI (divide True 9 (Range 1 10)) (\x -> [Tick 0.1 0 x (Just (show (round x)))]) $
+  [ [Tick 0.1 0.7 pi (Just "π")]
+  , forI (divide True 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (show (round x)))]) $
       \i range -> case i of
         (inRange 0 0 -> True) ->
-            for (divide False 10 range) (\x -> [Tick 0.075 0 x (Just (show (round ((x - 1) * 10))))]) $ \range ->
-              for (divide False 2 range) (\x -> [Tick 0.05 0 x Nothing]) $ \range ->
-                for (divide False 5 range) (\x -> [Tick 0.035 0 x Nothing]) mempty
+            for (divide False 10 range) (\x -> [Tick 0.75 0 x (Just (show (round ((x - 1) * 10))))]) $ \range ->
+              for (divide False 2 range) (\x -> [Tick 0.5 0 x Nothing]) $ \range ->
+                for (divide False 5 range) (\x -> [Tick 0.35 0 x Nothing]) mempty
         (inRange 1 4 -> True) ->
-          for (divide False 2 range) (\x -> [Tick 0.075 0 x (Just (show x))]) $ \range ->
-            for (divide False 5 range) (\x -> [Tick 0.05 0 x Nothing]) $ \range ->
-              for (divide False 4 range) (\x -> [Tick 0.035 0 x Nothing]) mempty
+          for (divide False 2 range) (\x -> [Tick 0.75 0 x (Just (show x))]) $ \range ->
+            for (divide False 5 range) (\x -> [Tick 0.5 0 x Nothing]) $ \range ->
+              for (divide False 4 range) (\x -> [Tick 0.35 0 x Nothing]) mempty
         _ ->
-          for (divide False 2 range) (\x -> [Tick 0.075 0 x (Just (show x))]) $ \range ->
-            for (divide False 5 range) (\x -> [Tick 0.05 0 x Nothing]) mempty
+          for (divide False 2 range) (\x -> [Tick 0.75 0 x (Just (show x))]) $ \range ->
+            for (divide False 5 range) (\x -> [Tick 0.5 0 x Nothing]) mempty
   ]
 
 dScale :: [Tick]
 dScale = map (mapPosition (logBase 100)) $
-  for (toRanges True [1, 10, 100]) (\x -> [Tick 0.1 0 x (Just (show (round x)))]) $ \range -> fold
-    [ [Tick 0.01 0.07 (pi * rStart range) (Just "π")]
-    , forI (divide False 9 range) (\x -> [Tick 0.1 0 x (Just (show (round x)))]) $
+  for (toRanges True [1, 10, 100]) (\x -> [Tick 1 0 x (Just (show (round x)))]) $ \range -> fold
+    [ [Tick 0.1 0.7 (pi * rStart range) (Just "π")]
+    , forI (divide False 9 range) (\x -> [Tick 1 0 x (Just (show (round x)))]) $
         \i range -> case i of
           (inRange 0 0 -> True) ->
-              for (divide False 10 range) (\x -> [Tick 0.075 0 x (Just (tail (showClean x)))]) $ \range ->
-                for (divide False 4 range) (\x -> [Tick 0.05 0 x Nothing]) mempty
+              for (divide False 10 range) (\x -> [Tick 0.75 0 x (Just (tail (showClean x)))]) $ \range ->
+                for (divide False 4 range) (\x -> [Tick 0.5 0 x Nothing]) mempty
           (inRange 1 4 -> True) ->
-            for (divide False 2 range) (\x -> [Tick 0.075 0 x (Just (show x))]) $ \range ->
-              for (divide False 5 range) (\x -> [Tick 0.05 0 x Nothing]) $ \range ->
-                for (divide False 2 range) (\x -> [Tick 0.035 0 x Nothing]) mempty
+            for (divide False 2 range) (\x -> [Tick 0.75 0 x (Just (show x))]) $ \range ->
+              for (divide False 5 range) (\x -> [Tick 0.5 0 x Nothing]) $ \range ->
+                for (divide False 2 range) (\x -> [Tick 0.35 0 x Nothing]) mempty
           _ ->
-            for (divide False 2 range) (\x -> [Tick 0.075 0 x (Just (show x))]) $ \range ->
-              for (divide False 5 range) (\x -> [Tick 0.05 0 x Nothing]) mempty
+            for (divide False 2 range) (\x -> [Tick 0.75 0 x (Just (show x))]) $ \range ->
+              for (divide False 5 range) (\x -> [Tick 0.5 0 x Nothing]) mempty
     ]
 
 showClean :: Double -> String
@@ -68,11 +71,19 @@ data Tick = Tick
 mapPosition :: (Double -> Double) -> Tick -> Tick
 mapPosition f Tick{..} = Tick{_position = f _position, ..}
 
-renderTick :: Tick -> Diagram B
-renderTick Tick{..} = fold
+renderTick :: RenderOptions -> Tick -> Diagram B
+renderTick RenderOptions{..} (scaleTickY roYScale -> Tick{..}) = fold
   [ moveTo (mkP2 _position _offset) (scale _height (lw 0.4 (fromOffsets [unitY])))
   , moveTo (mkP2 _position (_offset + _height)) (foldMap (\l -> alignedText 0.5 0 l & fontSize 14) _label)
   ]
+
+scaleTickY :: Double -> Tick -> Tick
+scaleTickY factor Tick{..} = Tick{_height = _height * factor, _offset = _offset * factor, ..}
+
+data RenderOptions = RenderOptions
+  { roFontSize :: Double
+  , roYScale :: Double
+  }
 
 data Range = Range { rStart, rEnd :: Double }
   deriving (Show)
