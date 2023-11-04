@@ -20,10 +20,18 @@ myDiagram :: Diagram B
 myDiagram =
   frame 0.04 $
     hsep 0.04
-      [ foldMap (renderTick RenderOptions { roFontSize = 14, roYScale = 0.015 }) cScaleCircle
-      , vsep 0.02
-          [ foldMap (renderTick RenderOptions { roFontSize = 8, roYScale = 0.04 }) dScale
-          , foldMap (renderTick RenderOptions { roFontSize = 8, roYScale = 0.04 }) cScale
+      [ let options = RenderOptions { roFontSize = 14, roYScale = 0.015 }
+        in
+        foldMap (renderTick options) cScaleCircle
+        <>
+        rotateBy (logBase 10 (1 / pi)) (foldMap (renderTick options) dScaleCircle)
+      , let options = RenderOptions { roFontSize = 8, roYScale = 0.04 }
+        in
+        vsep 0.02
+          [ foldMap (renderTick options) aScale
+          , foldMap (renderTick options) cScale
+            ===
+            foldMap (renderTick options) dScale
           ]
       ]
 
@@ -32,57 +40,63 @@ inRange lower upper x = lower <= x && x <= upper
 
 cScale :: [Tick]
 cScale = map (fmap (TSLinear . logBase 10)) $ concat
-  [ [Tick 0.1 0.7 pi (Just "π")]
-  , forI (divide iBoth 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (show (round x)))]) $
+  [ [Tick 0.1 0.7 pi (Just "π") False]
+  , forI (divide iBoth 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (show (round x))) False]) $
       \i range -> case i of
         (inRange 0 0 -> True) ->
-            for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (show (round ((x - 1) * 10))))]) $ \range ->
-              for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing]) $ \range ->
-                for (divide iNone 5 range) (\x -> [Tick 0.35 0 x Nothing]) mempty
+            for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (show (round ((x - 1) * 10)))) False]) $ \range ->
+              for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                for (divide iNone 5 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
         (inRange 1 4 -> True) ->
-          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x))]) $ \range ->
-            for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing]) $ \range ->
-              for (divide iNone 4 range) (\x -> [Tick 0.35 0 x Nothing]) mempty
+          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x)) False]) $ \range ->
+            for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+              for (divide iNone 4 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
         _ ->
-          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x))]) $ \range ->
-            for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing]) mempty
+          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x)) False]) $ \range ->
+            for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
   ]
 
 dScale :: [Tick]
-dScale = map (fmap (TSLinear . logBase 100)) $
-  for (toRanges iBoth [1, 10, 100]) (\x -> [Tick 1 0 x (Just (show (round x)))]) $ \range -> fold
-    [ [Tick 0.1 0.7 (pi * rStart range) (Just "π")]
-    , forI (divide iNone 9 range) (\x -> [Tick 1 0 x (Just (show (round x)))]) $
+dScale = map (\t -> t { _pointDown = True }) cScale
+
+aScale :: [Tick]
+aScale = map (fmap (TSLinear . logBase 100)) $
+  for (toRanges iBoth [1, 10, 100]) (\x -> [Tick 1 0 x (Just (show (round x))) False]) $ \range -> fold
+    [ [Tick 0.1 0.7 (pi * rStart range) (Just "π") False]
+    , forI (divide iNone 9 range) (\x -> [Tick 1 0 x (Just (show (round x))) False]) $
         \i range -> case i of
           (inRange 0 0 -> True) ->
-              for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (tail (showClean x)))]) $ \range ->
-                for (divide iNone 4 range) (\x -> [Tick 0.5 0 x Nothing]) mempty
+              for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (tail (showClean x))) False]) $ \range ->
+                for (divide iNone 4 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
           (inRange 1 4 -> True) ->
-            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (showClean x))]) $ \range ->
-              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing]) $ \range ->
-                for (divide iNone 2 range) (\x -> [Tick 0.35 0 x Nothing]) mempty
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (showClean x)) False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                for (divide iNone 2 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
           _ ->
-            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (showClean x))]) $ \range ->
-              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing]) mempty
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (showClean x)) False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
     ]
 
 cScaleCircle :: [Tick]
 cScaleCircle = map (fmap (TSRadial 0.3 . logBase 10)) $ concat
-  [ [Tick 0.1 0.7 pi (Just "π")]
-  , forI (divide iStart 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (show (round x)))]) $
+  [ [Tick 0.1 0.7 pi (Just "π") False]
+  , forI (divide iStart 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (show (round x))) False]) $
       \i range -> case i of
         (inRange 0 0 -> True) ->
-            for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (show (round ((x - 1) * 10))))]) $ \range ->
-              for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing]) $ \range ->
-                for (divide iNone 5 range) (\x -> [Tick 0.35 0 x Nothing]) mempty
+            for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (show (round ((x - 1) * 10)))) False]) $ \range ->
+              for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                for (divide iNone 5 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
         (inRange 1 4 -> True) ->
-          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x))]) $ \range ->
-            for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing]) $ \range ->
-              for (divide iNone 4 range) (\x -> [Tick 0.35 0 x Nothing]) mempty
+          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x)) False]) $ \range ->
+            for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+              for (divide iNone 4 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
         _ ->
-          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x))]) $ \range ->
-            for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing]) mempty
+          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x)) False]) $ \range ->
+            for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
   ]
+
+dScaleCircle :: [Tick]
+dScaleCircle = map (\t -> t { _pointDown = True }) cScaleCircle
 
 showClean :: Double -> String
 showClean = reverse . dropWhile (== '.') . dropWhile (== '0') . reverse . printf "%.6f"
@@ -92,6 +106,7 @@ data TickG position = Tick
   , _offset :: Double
   , _position :: position
   , _label :: Maybe String
+  , _pointDown :: Bool
   }
   deriving (Show, Eq, Ord, Functor)
 
@@ -103,13 +118,20 @@ data TickShape = TSRadial { tsRadius, tsAngle :: Double } | TSLinear Double
 renderTick :: RenderOptions -> Tick -> Diagram B
 renderTick RenderOptions{..} (scaleTickY roYScale -> Tick{..}) =
   moveByPositionOffset $ fold
-    [ moveTo (mkP2 0 0) (scale _height (lw 0.4 (fromOffsets [unitY])))
-    , moveTo (mkP2 0 _height) (foldMap (\l -> alignedText 0.5 0 l & fontSize (pure roFontSize)) _label)
+    [ moveTo (mkP2 0 0) (scale (flipIfDown _height) (lw 0.4 (fromOffsets [unitY])))
+    , moveTo (mkP2 0 (flipIfDown _height)) (foldMap renderLabel _label)
     ]
       where
+    flipIfDown = if _pointDown then negate else id
+
     moveByPositionOffset = case _position of
-      TSLinear position -> moveTo (mkP2 position _offset)
-      TSRadial radius angle -> rotateBy (-angle) . moveTo (mkP2 0 (radius + _offset))
+      TSLinear position -> moveTo (mkP2 position (flipIfDown _offset))
+      TSRadial radius angle -> rotateBy (-angle) . moveTo (mkP2 0 (radius + flipIfDown _offset))
+
+    renderLabel :: String -> Diagram B
+    renderLabel l
+      | _pointDown = alignedText 0.5 1 l & fontSize (pure roFontSize)
+      | otherwise  = alignedText 0.5 0 l & fontSize (pure roFontSize)
 
 scaleTickY :: Double -> Tick -> Tick
 scaleTickY factor Tick{..} = Tick{_height = _height * factor, _offset = _offset * factor, ..}
