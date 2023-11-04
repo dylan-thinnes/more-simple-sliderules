@@ -100,16 +100,16 @@ cfScale :: [Tick]
 cfScale = do
   tick <- cScalePositions iStart
   flip traverse tick $ \pos -> do
-    transformedPos <- clamp 0.01 $ logBase 10 $ pos / pi
+    transformedPos <- clamp 0.023 0.024 $ logBase 10 $ pos / pi
     pure (TSLinear transformedPos)
   where
-    clamp :: Double -> Double -> [Double]
-    clamp delta x
-      | x < -delta = clamp delta (x + 1)
-      | x < delta = [x, x + 1]
-      | x < 1 - delta = [x]
-      | x < 1 + delta = [x, x - 1]
-      | otherwise = clamp delta (x - 1)
+    clamp :: Double -> Double -> Double -> [Double]
+    clamp lower upper x
+      | x < -lower = clamp lower upper (x + 1)
+      | x < upper = [x, x + 1]
+      | x < 1 - lower = [x]
+      | x < 1 + upper = [x, x - 1]
+      | otherwise = clamp lower upper (x - 1)
 
 cScaleCircle, dScaleCircle :: [Tick]
 cScaleCircle = map (fmap (TSRadial 0.3 0 . logBase 10)) (cScalePositions iStart)
