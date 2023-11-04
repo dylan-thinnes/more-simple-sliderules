@@ -27,6 +27,7 @@ myDiagram =
                 [ foldMap (renderTick options) cScaleCircle
                 , rotateBy (negate (logBase 100 pi)) (foldMap (renderTick options) dScaleCircle)
                 , foldMap (renderTick options) aScaleCircle
+                , foldMap (renderTick options) sqrtScaleCircle
                 ]
             cursor :: Colour Double -> Double -> Diagram B
             cursor color x = fromOffsets [envelopeV (rotateBy (negate x) unitY) circles] & lw 0.4 & lc color
@@ -89,11 +90,14 @@ aScale :: [Tick]
 aScale = map (fmap (TSLinear . logBase 100)) (aScalePositions iBoth)
 
 cScaleCircle, dScaleCircle :: [Tick]
-cScaleCircle = map (fmap (TSRadial 0.3 . logBase 10)) (cScalePositions iStart)
+cScaleCircle = map (fmap (TSRadial 0.3 0 . logBase 10)) (cScalePositions iStart)
 dScaleCircle = map (\t -> t { _pointDown = True }) cScaleCircle
 
 aScaleCircle :: [Tick]
-aScaleCircle = map (fmap (TSRadial 0.35 . logBase 100)) (aScalePositions iStart)
+aScaleCircle = map (fmap (TSRadial 0.35 0 . logBase 100)) (aScalePositions iStart)
+
+sqrtScaleCircle :: [Tick]
+sqrtScaleCircle = map (fmap (TSRadial 0.4 0.05 . logBase 10)) (aScalePositions iStart)
 
 showClean :: Double -> String
 showClean = reverse . dropWhile (== '.') . dropWhile (== '0') . reverse . printf "%.6f"
@@ -109,7 +113,7 @@ data TickG position = Tick
 
 type Tick = TickG TickShape
 
-data TickShape = TSRadial { tsRadius, tsAngle :: Double } | TSLinear Double
+data TickShape = TSRadial { tsRadius, tsSpiralRate, tsAngle :: Double } | TSLinear Double
   deriving (Show, Eq, Ord)
 
 renderTick :: RenderOptions -> Tick -> Diagram B
@@ -123,7 +127,7 @@ renderTick RenderOptions{..} (scaleTickY roYScale -> Tick{..}) =
 
     moveByPositionOffset = case _position of
       TSLinear position -> moveTo (mkP2 position (flipIfDown _offset))
-      TSRadial radius angle -> rotateBy (-angle) . moveTo (mkP2 0 (radius + flipIfDown _offset))
+      TSRadial radius spiralRate angle -> rotateBy (-angle) . moveTo (mkP2 0 ((angle * spiralRate) + radius + flipIfDown _offset))
 
     renderLabel :: String -> Diagram B
     renderLabel l
