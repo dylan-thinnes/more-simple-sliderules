@@ -17,7 +17,8 @@ import Text.Printf (printf)
 
 main :: IO ()
 main = do
-  mainWith myDiagram
+  --mainWith myDiagram
+  mainWith giantSlideRule
   putStrLn "Done!"
 
 ignore :: Monoid b => a -> b
@@ -49,6 +50,28 @@ myDiagram =
           , foldMap (renderTick options) cfScale
           ]
       ]
+
+giantSlideRule :: Diagram B
+giantSlideRule = foldMap (renderTick RenderOptions { roFontSize = 14, roYScale = 0.015 }) longCScale
+  where
+    longCScale =
+      map (fmap (TSRadial 0.4 0.05 . (* 10) . logBase 10)) $ fold
+        [ [Tick 0.1 0.7 pi (Just "π") False]
+        , forI (divide iBoth 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $
+            \i range -> case i of
+              (inRange 0 1 -> True) ->
+                for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+                  for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
+                    for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                      for (divide iNone 2 range) (\x -> [Tick 0.35 0 x Nothing False]) $ \range ->
+                        for (divide iNone 5 range) (\x -> [Tick 0.25 0 x Nothing False]) mempty
+              _ ->
+                for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+                  for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
+                    for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                      for (divide iNone 2 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
+        ]
+
 
 inRange :: Ord a => a -> a -> a -> Bool
 inRange lower upper x = lower <= x && x <= upper
