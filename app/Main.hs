@@ -1,6 +1,8 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 module Main where
@@ -17,11 +19,15 @@ main = do
   mainWith myDiagram
   putStrLn "Done!"
 
+ignore :: Monoid b => a -> b
+ignore = const mempty
+
 myDiagram :: Diagram B
 myDiagram =
   frame 0.04 $
     hsep 0.04
-      [ let options = RenderOptions { roFontSize = 14, roYScale = 0.015 }
+      [ ignore $
+        let options = RenderOptions { roFontSize = 14, roYScale = 0.015 }
             circles =
               fold
                 [ foldMap (renderTick options) cScaleCircle
@@ -40,6 +46,7 @@ myDiagram =
           , foldMap (renderTick options) cScale
             ===
             foldMap (renderTick options) dScale
+          , foldMap (renderTick options) cfScale
           ]
       ]
 
@@ -89,6 +96,21 @@ aScalePositions inclusive =
 aScale :: [Tick]
 aScale = map (fmap (TSLinear . logBase 100)) (aScalePositions iBoth)
 
+cfScale :: [Tick]
+cfScale = do
+  tick <- cScalePositions iStart
+  flip traverse tick $ \pos -> do
+    transformedPos <- clamp 0.01 $ logBase 10 $ pos / pi
+    pure (TSLinear transformedPos)
+  where
+    clamp :: Double -> Double -> [Double]
+    clamp delta x
+      | x < -delta = clamp delta (x + 1)
+      | x < delta = [x, x + 1]
+      | x < 1 - delta = [x]
+      | x < 1 + delta = [x, x - 1]
+      | otherwise = clamp delta (x - 1)
+
 cScaleCircle, dScaleCircle :: [Tick]
 cScaleCircle = map (fmap (TSRadial 0.3 0 . logBase 10)) (cScalePositions iStart)
 dScaleCircle = map (\t -> t { _pointDown = True }) cScaleCircle
@@ -109,7 +131,7 @@ data TickG position = Tick
   , _label :: Maybe String
   , _pointDown :: Bool
   }
-  deriving (Show, Eq, Ord, Functor)
+  deriving (Show, Eq, Ord, Functor, Foldable, Traversable)
 
 type Tick = TickG TickShape
 
