@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
@@ -19,16 +20,13 @@ import Text.Printf (printf)
 import Data.Maybe (fromJust)
 import System.IO (stdin)
 import Hershey qualified
+import GHC.Exts (IsString(..))
 
 main :: IO ()
 main = do
   --mainWith myDiagram
   --mainWith giantSlideRule
-  hersheyMap <- fmap fromJust $ Hershey.parseFromFile stdin
-  mainWith $
-    foldMap
-      (renderTick RenderOptions { roRenderLabel = renderLabelHershey hersheyMap Hershey.gothicSimplex 0.0004, roYScale = 0.015 })
-      cScaleCircle
+  mainWith . myHersheyDiagram =<< fmap fromJust (Hershey.parseFromFile stdin)
   putStrLn "Done!"
 
 ignore :: Monoid b => a -> b
@@ -61,22 +59,51 @@ myDiagram =
           ]
       ]
 
+myHersheyDiagram :: [Hershey.Character] -> Diagram B
+myHersheyDiagram hersheyMap =
+    (foldMap . foldMap)
+      (renderTick RenderOptions { roRenderLabel = renderLabelHershey hersheyMap Hershey.gothicSimplex 0.0004, roYScale = 0.015 })
+      [hersheyCScaleCircle, hersheyDScaleCircle]
+  where
+  hersheyCScaleCircle, hersheyDScaleCircle :: [Tick]
+  hersheyCScaleCircle = map (fmap (TSRadial 0.3 0 . logBase 10)) (hersheyCScalePositions iStart)
+  hersheyDScaleCircle = map (\t -> t { _pointDown = True }) hersheyCScaleCircle
+
+  hersheyCScalePositions :: Inclusive -> [TickG Double]
+  hersheyCScalePositions inclusive = concat
+    [ [Tick 0.1 0.7 pi (Just "π") False]
+    , forI (divide inclusive 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (tickLabel (show (round x))) { tlFontScaling = 1 }) False]) $
+        \i range -> case i of
+          (inRange 0 0 -> True) ->
+              for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show (round ((x - 1) * 10)))) { tlFontScaling = 0.8 }) False]) $ \range ->
+                for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                  for (divide iNone 5 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
+          (inRange 1 4 -> True) ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show x)) { tlFontScaling = 0.8 }) False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                for (divide iNone 4 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
+          _ ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show x)) { tlFontScaling = 0.8 }) False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
+    ]
+
+
 giantSlideRule :: Diagram B
 giantSlideRule = foldMap (renderTick RenderOptions { roRenderLabel = renderLabelText 14, roYScale = 0.015 }) longCScale
   where
     longCScale =
       map (fmap (TSRadial 0.4 0.05 . (* 10) . logBase 10)) $ fold
         [ [Tick 0.1 0.7 pi (Just "π") False]
-        , forI (divide iBoth 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $
+        , forI (divide iBoth 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (tickLabel (showClean x))) False]) $
             \i range -> case i of
               (inRange 0 1 -> True) ->
-                for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+                for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (tickLabel (showClean x))) False]) $ \range ->
                   for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
                     for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
                       for (divide iNone 2 range) (\x -> [Tick 0.35 0 x Nothing False]) $ \range ->
                         for (divide iNone 5 range) (\x -> [Tick 0.25 0 x Nothing False]) mempty
               _ ->
-                for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+                for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (tickLabel (showClean x))) False]) $ \range ->
                   for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
                     for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
                       for (divide iNone 2 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
@@ -89,18 +116,18 @@ inRange lower upper x = lower <= x && x <= upper
 cScalePositions :: Inclusive -> [TickG Double]
 cScalePositions inclusive = concat
   [ [Tick 0.1 0.7 pi (Just "π") False]
-  , forI (divide inclusive 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (show (round x))) False]) $
+  , forI (divide inclusive 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (tickLabel (show (round x)))) False]) $
       \i range -> case i of
         (inRange 0 0 -> True) ->
-            for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (show (round ((x - 1) * 10)))) False]) $ \range ->
+            for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show (round ((x - 1) * 10))))) False]) $ \range ->
               for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
                 for (divide iNone 5 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
         (inRange 1 4 -> True) ->
-          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x)) False]) $ \range ->
+          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show x))) False]) $ \range ->
             for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
               for (divide iNone 4 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
         _ ->
-          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (show x)) False]) $ \range ->
+          for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show x))) False]) $ \range ->
             for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
   ]
 
@@ -110,19 +137,19 @@ dScale = map (\t -> t { _pointDown = True }) cScale
 
 aScalePositions :: Inclusive -> [TickG Double]
 aScalePositions inclusive =
-  for (toRanges inclusive [1, 10, 100]) (\x -> [Tick 1 0 x (Just (show (round x))) False]) $ \range -> fold
+  for (toRanges inclusive [1, 10, 100]) (\x -> [Tick 1 0 x (Just (tickLabel (show (round x)))) False]) $ \range -> fold
     [ [Tick 0.1 0.7 (pi * rStart range) (Just "π") False]
-    , forI (divide iNone 9 range) (\x -> [Tick 1 0 x (Just (show (round x))) False]) $
+    , forI (divide iNone 9 range) (\x -> [Tick 1 0 x (Just (tickLabel (show (round x)))) False]) $
         \i range -> case i of
           (inRange 0 0 -> True) ->
-              for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (tail (showClean x))) False]) $ \range ->
+              for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (tail (showClean x)))) False]) $ \range ->
                 for (divide iNone 4 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
           (inRange 1 4 -> True) ->
-            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (showClean x)) False]) $ \range ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (showClean x))) False]) $ \range ->
               for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
                 for (divide iNone 2 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
           _ ->
-            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (showClean x)) False]) $ \range ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (showClean x))) False]) $ \range ->
               for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
     ]
 
@@ -154,19 +181,19 @@ aScaleCircle = map (fmap (TSRadial 0.35 0 . logBase 100)) (aScalePositions iStar
 sqrtScaleSpiral :: [Tick]
 sqrtScaleSpiral = map (fmap (TSRadial 0.4 0.05 . (* 2) . logBase 10)) $ fold
   [ [Tick 0.1 0.7 pi (Just "π") False]
-  , forI (divide iBoth 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $
+  , forI (divide iBoth 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (tickLabel (showClean x))) False]) $
       \i range -> case i of
         (inRange 0 0 -> True) ->
-          for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+          for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (tickLabel (showClean x))) False]) $ \range ->
             for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
               for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
                 for (divide iNone 2 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
         (inRange 1 4 -> True) ->
-          for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+          for (divide iNone 10 range) (\x -> [Tick 1 0 x (Just (tickLabel (showClean x))) False]) $ \range ->
             for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
               for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
         _ ->
-          for (divide iNone 2 range) (\x -> [Tick 1 0 x (Just (showClean x)) False]) $ \range ->
+          for (divide iNone 2 range) (\x -> [Tick 1 0 x (Just (tickLabel (showClean x))) False]) $ \range ->
             for (divide iNone 5 range) (\x -> [Tick 1 0 x Nothing False]) $ \range ->
               for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
                 for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
@@ -179,7 +206,7 @@ data TickG position = Tick
   { _height :: Double
   , _offset :: Double
   , _position :: position
-  , _label :: Maybe String
+  , _label :: Maybe TickLabel
   , _pointDown :: Bool
   }
   deriving (Show, Eq, Ord, Functor, Foldable, Traversable)
@@ -188,6 +215,18 @@ type Tick = TickG TickShape
 
 data TickShape = TSRadial { tsRadius, tsSpiralRate, tsAngle :: Double } | TSLinear Double
   deriving (Show, Eq, Ord)
+
+data TickLabel = TickLabel
+  { tlFontScaling :: Double
+  , tlText :: String
+  }
+  deriving (Show, Eq, Ord)
+
+tickLabel :: String -> TickLabel
+tickLabel = TickLabel 1
+
+instance IsString TickLabel where
+  fromString = tickLabel
 
 renderTick :: RenderOptions -> Tick -> Diagram B
 renderTick RenderOptions{..} (scaleTickY roYScale -> tick@Tick{..}) =
@@ -206,21 +245,21 @@ scaleTickY :: Double -> Tick -> Tick
 scaleTickY factor Tick{..} = Tick{_height = _height * factor, _offset = _offset * factor, ..}
 
 data RenderOptionsG a = RenderOptions
-  { roRenderLabel :: TickG a -> String -> Diagram B
+  { roRenderLabel :: TickG a -> TickLabel -> Diagram B
   , roYScale :: Double
   }
 
 type RenderOptions = RenderOptionsG TickShape
 
-renderLabelText :: Double -> TickG a -> String -> Diagram B
-renderLabelText roFontSize Tick{..} l
-  | _pointDown = alignedText 0.5 1 l & fontSize (pure roFontSize)
-  | otherwise  = alignedText 0.5 0 l & fontSize (pure roFontSize)
+renderLabelText :: Double -> TickG a -> TickLabel -> Diagram B
+renderLabelText roFontSize Tick{..} TickLabel{..}
+  | _pointDown = alignedText 0.5 1 tlText & fontSize (pure (roFontSize * tlFontScaling))
+  | otherwise  = alignedText 0.5 0 tlText & fontSize (pure (roFontSize * tlFontScaling))
 
-renderLabelHershey :: [Hershey.Character] -> [Int] -> Double -> TickG a -> String -> Diagram B
-renderLabelHershey chars idxs scaleFactor Tick{..} l
-  = Hershey.renderWrite chars idxs Hershey.TextOptions { justify = 0, aboveBaseline = 15, belowBaseline = 15 } [l]
-      & scale scaleFactor
+renderLabelHershey :: [Hershey.Character] -> [Int] -> Double -> TickG a -> TickLabel -> Diagram B
+renderLabelHershey chars idxs scaleFactor Tick{..} TickLabel{..}
+  = Hershey.renderWrite chars idxs Hershey.TextOptions { justify = 0, aboveBaseline = 15, belowBaseline = 15 } [tlText]
+      & scale (scaleFactor * tlFontScaling)
       & if _pointDown then alignT else alignB
 
 data Range = Range { rStart, rEnd :: Double }
