@@ -44,7 +44,10 @@ let relativeToOrigin = e => {
   document.addEventListener("mousemove", e => {
     if (mouseIsDown) {
       let endingAngle = relativeToOrigin(e);
-      differenceAngle = (720 + totalAngle + (startingAngle - endingAngle) * scalingBy) % 360;
+      let delta = (720 + startingAngle - endingAngle) % 360;
+      delta = scalingBy * (delta > 180 ? delta - 360 : delta);
+      differenceAngle = (totalAngle + delta) % 360;
+      console.log(differenceAngle, delta);
       setRotation(differenceAngle);
     }
   });
