@@ -61,18 +61,29 @@ myDiagram =
 
 myHersheyDiagram :: [Hershey.Character] -> Diagram B
 myHersheyDiagram hersheyMap =
-    (foldMap . foldMap)
-      (renderTick RenderOptions { roRenderLabel = renderLabelHershey hersheyMap Hershey.gothicSimplex 0.0004, roYScale = 0.015 })
-      [hersheyCScaleCircle, hersheyDScaleCircle]
+  fold
+    [ renderWithClass "cScale" hersheyCScaleCircle
+    , renderWithClass "dScale" hersheyDScaleCircle
+    , renderWithClass "lScale" hersheyLogScaleCircle
+    , renderWithClass "aScale" hersheyAScaleCircle
+    , renderWithClass "kScale" hersheyKScaleCircle
+    , svgId "origin" $ circle 0.001
+    ]
   where
-  hersheyCScaleCircle, hersheyDScaleCircle :: [Tick]
-  hersheyCScaleCircle = map (fmap (TSRadial 0.3 0 . logBase 10)) (hersheyCScalePositions iStart)
-  hersheyDScaleCircle = map (\t -> t { _pointDown = True }) hersheyCScaleCircle
+  renderWithClass :: String -> [Tick] -> Diagram B
+  renderWithClass class_ ticks =
+    svgClass class_ $
+    foldMap
+      (renderTick
+        RenderOptions
+          { roRenderLabel = renderLabelHershey hersheyMap Hershey.gothicSimplex 0.0004
+          , roYScale = 0.015 })
+      ticks
 
-  hersheyCScalePositions :: Inclusive -> [TickG Double]
-  hersheyCScalePositions inclusive = concat
+  hersheyCScaleCircle :: [Tick]
+  hersheyCScaleCircle = map (fmap (TSRadial 0.3 0 . logBase 10)) $ concat
     [ [Tick 0.1 0.7 pi (Just "π") False]
-    , forI (divide inclusive 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (tickLabel (show (round x))) { tlFontScaling = 1 }) False]) $
+    , forI (divide iStart 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (tickLabel (show (round x))) { tlFontScaling = 1 }) False]) $
         \i range -> case i of
           (inRange 0 0 -> True) ->
               for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show (round ((x - 1) * 10)))) { tlFontScaling = 0.8 }) False]) $ \range ->
@@ -87,6 +98,71 @@ myHersheyDiagram hersheyMap =
               for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
     ]
 
+  hersheyDScaleCircle :: [Tick]
+  hersheyDScaleCircle = map (\t -> t { _pointDown = True }) hersheyCScaleCircle
+
+  hersheyLogScaleCircle :: [Tick]
+  hersheyLogScaleCircle = map (fmap (TSRadial 0.24 0)) $ concat
+    [ for (divide iStart 10 (Range 0 1)) (\x -> [Tick 1 0 x (Just (tickLabel (show (round (10 * x)))) { tlFontScaling = 1 }) False]) $ \range ->
+        for (divide iNone 2 range) (\x -> [Tick 0.75 0 x Nothing False]) $ \range ->
+          for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+            for (divide iNone 4 range) (\x -> [Tick 0.3 0 x Nothing False]) $ \range ->
+              mempty
+    ]
+
+  hersheyAScaleCircle :: [Tick]
+  hersheyAScaleCircle = map (fmap (TSRadial 0.34 0 . logBase 100)) $
+    forI (toRanges iStart [1, 10, 100]) (\x -> [Tick 1 0 x (Just (tickLabel (show (round x)))) False]) $ \i range ->
+      let showLargerTick = show . round
+          showSmallerTick1To2
+            | i > 0 = show . round
+            | otherwise = show
+          showSmallerTick3Up
+            | i > 0 = show . round
+            | otherwise = \x -> show (round ((x - 1) * 10))
+      in
+      forI (divide iNone 9 range) (\x -> [Tick 1 0 x (Just (tickLabel (showLargerTick x)) { tlFontScaling = 1 }) False]) $
+        \i range -> case i of
+          (inRange 0 0 -> True) ->
+              for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (showSmallerTick1To2 x)) { tlFontScaling = 0.8 }) False]) $ \range ->
+                for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                  for (divide iNone 5 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
+          (inRange 1 4 -> True) ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (showSmallerTick3Up x)) { tlFontScaling = 0.8 }) False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                for (divide iNone 4 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
+          _ ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (showSmallerTick3Up x)) { tlFontScaling = 0.8 }) False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
+
+  hersheyKScaleCircle :: [Tick]
+  hersheyKScaleCircle = map (fmap (TSRadial 0.38 0 . logBase 1000)) $
+    forI (toRanges iStart [1, 10, 100, 1000]) (\x -> [Tick 1 0 x (Just (tickLabel (show (round x)))) False]) $ \i range ->
+      let showLargerTick = Just . show . round
+          showSmallerTick1To2
+            | i > 0 = Just . show . round
+            | otherwise = Just . show
+          showSmallerTick3To6
+            | i > 0 = Just . show . round
+            | otherwise = \x -> Just (show (round ((x - 1) * 10)))
+          showSmallerTick7Up
+            | i > 0 = const Nothing
+            | otherwise = \x -> Just (show (round ((x - 1) * 10)))
+          tickLabelWithFontScaling scale text = (tickLabel text) { tlFontScaling = scale }
+      in
+      forI (divide iNone 9 range) (\x -> [Tick 1 0 x (tickLabelWithFontScaling 1 <$> showLargerTick x) False]) $
+        \i range -> case i of
+          (inRange 0 1 -> True) ->
+              for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (tickLabelWithFontScaling 0.8 <$> showSmallerTick1To2 x) False]) $ \range ->
+                for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                  for (divide iNone 4 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
+          (inRange 2 4 -> True) ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (tickLabelWithFontScaling 0.8 <$> showSmallerTick3To6 x) False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+                mempty
+          _ ->
+            for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (tickLabelWithFontScaling 0.8 <$> showSmallerTick7Up x) False]) $ \range ->
+              for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
 
 giantSlideRule :: Diagram B
 giantSlideRule = foldMap (renderTick RenderOptions { roRenderLabel = renderLabelText 14, roYScale = 0.015 }) longCScale
@@ -152,6 +228,28 @@ aScalePositions inclusive =
             for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (showClean x))) False]) $ \range ->
               for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
     ]
+
+llScale :: [Tick]
+llScale = map (fmap (TSLinear . (3 +) . logBase 10 . logBase 10)) $ concat $
+  let controlPoints = [1.0025, 1.002, 1.003, 1.004, 1.005, 1.006, 1.007, 1.008, 1.009, 1.01, 1.015, 1.02, 1.03]
+  in
+  [ for (toRanges iBoth controlPoints) (\x -> [Tick 1 0 x (Just (tickLabel (show x))) False]) $ \range ->
+      for (autodivide iNone range) (\x -> [Tick 1 0 x Nothing False]) $ \range ->
+        mempty
+    --forI (divide inclusive 9 (Range 1 10)) (\x -> [Tick 1 0 x (Just (tickLabel (show (round x)))) False]) $
+    --  \i range -> case i of
+    --    (inRange 0 0 -> True) ->
+    --        for (divide iNone 10 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show (round ((x - 1) * 10))))) False]) $ \range ->
+    --          for (divide iNone 2 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+    --            for (divide iNone 5 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
+    --    (inRange 1 4 -> True) ->
+    --      for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show x))) False]) $ \range ->
+    --        for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) $ \range ->
+    --          for (divide iNone 4 range) (\x -> [Tick 0.35 0 x Nothing False]) mempty
+    --    _ ->
+    --      for (divide iNone 2 range) (\x -> [Tick 0.75 0 x (Just (tickLabel (show x))) False]) $ \range ->
+    --        for (divide iNone 5 range) (\x -> [Tick 0.5 0 x Nothing False]) mempty
+  ]
 
 aScale :: [Tick]
 aScale = map (fmap (TSLinear . logBase 100)) (aScalePositions iBoth)
@@ -272,6 +370,15 @@ iBoth  = Inclusive  True  True
 iStart = Inclusive  True False
 iEnd   = Inclusive False  True
 iNone  = Inclusive False False
+
+autodivide :: Inclusive -> Range -> ([Double], [Range])
+autodivide inclusive range@Range{..} = divide inclusive amount range
+  where
+    amount = scaleUntilIntegral (abs (rEnd - rStart))
+    scaleUntilIntegral x =
+      if abs (x - fromIntegral (round x)) < 0.0001
+         then round x
+         else scaleUntilIntegral (x * 10)
 
 divide :: Inclusive -> Int -> Range -> ([Double], [Range])
 divide inclusive amount range = toRanges inclusive $ divideN amount range

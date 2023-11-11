@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+cat ../hershey/hershey | ../hershey/extract | cabal run -- sliderules -o index.svg -w 1000 -h 1000 -p
+sed -iE '/<svg/a  <script href="/script.js"/>' index.svg
